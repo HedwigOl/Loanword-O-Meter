@@ -29,9 +29,9 @@ Loanword-O-Meter is een webapplicatie voor het analyseren en visualiseren van le
 4. Klik op **Load**.
 5. De applicatie verwerkt de gegevens automatisch en toont:
 
-   * een corpusoverzicht;
-   * interactieve grafieken;
-   * de meest voorkomende leenwoorden;
+   * overzicht van algemene statistieken;
+   * grafieken voor type-based en token-based analyse;
+   * lijst met de voorkomende leenwoorden;
    * een doorzoekbaar overzicht van leenwoorden per brontaal.
 
 
