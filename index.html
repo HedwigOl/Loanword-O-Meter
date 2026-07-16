@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Loanword-O-Meter</title>
+
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<!-- Titel -->
+<header>
+    <h1>Loanword-O-Meter</h1>
+</header>
+
+<main>
+
+    <!-- JSON loader (TODO: integreren met manier waarop JSON file verschaft wordt) -->
+    <section class="loader">
+
+        <label for="jsonUrl">
+            BlackLab JSON endpoint
+        </label>
+
+        <div class="loader-row">
+            <input
+                id="jsonUrl"
+                type="url"
+                placeholder="Paste BlackLab JSON URL here">
+
+            <button id="loadBtn">
+                Load corpus
+            </button>
+
+        </div>
+
+        <p id="status">
+            Waiting for input...
+        </p>
+
+    </section>
+
+    <!-- Corpus facts overview -->
+    <section class="dashboard">
+
+        <h2>Corpusoverzicht</h2>
+
+        <div class="card-grid">
+
+            <article class="card">
+                <h2 id="totalWords">–</h2>
+                <p>woorden</p>
+            </article>
+
+            <article class="card">
+                <h2 id="loanOccurrences">–</h2>
+                <p>leenwoorden</p>
+            </article>
+
+            <article class="card">
+                <h2 id="occurrencePercent">–</h2>
+                <p>Leenwoorden in corpus</p>
+            </article>
+
+            <article class="card">
+                <h2 id="topLanguage">–</h2>
+                <p>Meest voorkomende brontaal</p>
+            </article>
+
+            <article class="card">
+                <h2 id="totalTypes">–</h2>
+                <p>unieke woorden</p>
+            </article>
+
+            <article class="card">
+                <h2 id="uniqueLoanwords">–</h2>
+                <p>unieke leenwoorden</p>
+            </article>
+
+            <article class="card">
+                <h2 id="typePercent">–</h2>
+                <p>leenwoorden van unieke woorden</p>
+            </article>
+
+            <article class="card">
+                <h2 id="sourceLanguages">–</h2>
+                <p>brontalen</p>
+            </article>
+        </div>
+    </section>
+
+    <!-- Diagrams -->
+    <section class="chart-section">
+
+        <div class="chart-header">
+
+            <h2>Distributie van brontalen</h2>
+
+            <div class="tabs">
+                <button id="tokenTab" class="tab active">Token-based</button>
+                <button id="typeTab" class="tab">Type-based</button>
+            </div>
+
+        </div>
+
+        <div class="chart-panel">
+
+            <div class="chart-box">
+                <h3>Verdeling van leenwoorden naar brontaal</h3>
+                <canvas id="languageDonut"></canvas>
+            </div>
+
+            <div class="chart-box">
+                <h3>Aandeel van leenwoorden (%) in het corpus per brontaal</h3>
+                <canvas id="languageBar"></canvas>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Table most frequent loanwoords -->
+    <section class="table-section">
+
+        <h2>Meest voorkomende leenwoorden</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Leenwoord</th>
+                    <th>Brontaal</th>
+                    <th>Aantal voorkomens</th>
+                </tr>
+
+            </thead>
+            <tbody id="topWordsTable">
+            </tbody>
+        </table>
+
+        <div class="table-controls">
+            <button id="showLessBtn">◀ Vorige</button>
+            <span id="tablePageInfo">Resultaten 1–10</span>
+            <button id="showMoreBtn">Volgende ▶</button>
+        </div>
+
+    </section>
+
+    <!-- Search bar for each donor language -->
+    <section class="explorer-section">
+
+        <h2>Leenwoorden per brontaal</h2>
+
+        <input
+            id="languageSearch"
+            type="search"
+            placeholder="Zoek naar een specifiek leenwoord..."
+        >
+
+        <div id="languageTree"></div>
+
+    </section>
+
+</main>
+
+<script type="module" src="js/app.js"></script>
+
+</body>
+
+</html>
