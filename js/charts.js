@@ -83,7 +83,8 @@ export function initialiseCharts() {
                 tooltip: {
                     callbacks: {
                         label(context) {
-                            return `${context.raw.toFixed(3)}%`;
+                            const rawCount = context.dataset.rawCounts[context.dataIndex];
+                            return `${context.raw.toFixed(3)}% (${rawCount.toLocaleString()} loanword${rawCount === 1 ? "" : "s"})`;
                         }
                     }
                 }
@@ -142,11 +143,14 @@ export function updateCharts(parsed, mode) {
     // Determine the denominator for the bar chart percentages
     const denominator = mode === "token"
         ? parsed.corpus.totalTokens
-        : parsed.rows.length; // Placeholder until corpus vocabulary size is available
+        : parsed.corpus.totalTypes
 
     const percentages = topTen.map(d =>
         denominator ? 100 * d.count / denominator : 0
     );
+
+    // Store the raw counts for the tooltip
+    barChart.data.datasets[0].rawCounts = topTen.map(d => d.count);
 
     // Update the horizontal bar chart
     barChart.data.labels = topTen.map(d => d.language);

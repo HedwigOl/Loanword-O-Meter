@@ -4,78 +4,101 @@
 export function parseBlackLab(json) {
 
     const groups = json.hitGroups || [];
-    const rows = [];
+
+    const rows = new Array(groups.length);
     const tokenDistribution = new Map();
-    const typeDistribution  = new Map();
+    const typeDistribution = new Map();
 
-    // Loop through every language/lemma group
-    for (const group of groups) {
+    // Determine once where the language and lemma are stored
+    let languageIndex = -1;
+    let lemmaIndex = -1;
 
-        let language = "Unknown";
-        let lemma = "";
+    if (groups.length > 0 && groups[0].properties) {
+        const firstProperties = groups[0].properties;
 
-        // Read the language and lemma from the group properties
-        for (const property of group.properties || []) {
-            if (property.name.includes("language")) {
-                language = property.value;
-            }
-            if (property.name.includes("lemma")) {
-                lemma = property.value;
+        for (let i = 0; i < firstProperties.length; i++) {
+            const name = firstProperties[i].name;
+
+            if (name.includes("language")) {
+                languageIndex = i;
+            } else if (name.includes("lemma")) {
+                lemmaIndex = i;
             }
         }
+    }
 
-        const occurrences = Number(group.size || 0);
+    // Parse all groups
+    for (let i = 0; i < groups.length; i++) {
 
-        // Store the individual row
-        rows.push({
+        const group = groups[i];
+        const properties = group.properties;
+
+        const language =
+            languageIndex >= 0
+                ? properties[languageIndex].value
+                : "Unknown";
+
+        const lemma =
+            lemmaIndex >= 0
+                ? properties[lemmaIndex].value
+                : "";
+
+        const occurrences = Number(group.size) || 0;
+
+        rows[i] = {
             language,
             lemma,
             count: occurrences
-        });
+        };
 
-        // Token-based distribution (counts all occurrences)
+        // Token distribution
+        const tokenCount = tokenDistribution.get(language);
         tokenDistribution.set(
             language,
-            (tokenDistribution.get(language) || 0) + occurrences
+            tokenCount === undefined
+                ? occurrences
+                : tokenCount + occurrences
         );
 
-        // Type-based distribution (counts unique lemmas)
+        // Type distribution
+        const typeCount = typeDistribution.get(language);
         typeDistribution.set(
             language,
-            (typeDistribution.get(language) || 0) + 1
+            typeCount === undefined
+                ? 1
+                : typeCount + 1
         );
-
     }
 
-    // Extract corpus statistics from the JSON file
+    // Extract corpus statistics
     const corpus = {
         totalTokens:
             json.summary?.subcorpusSize?.tokens ??
             json.summary?.tokensInMatchingDocuments ??
             0,
+
         totalDocuments:
             json.summary?.subcorpusSize?.documents ??
             0,
-        totalTypes: 10000 // Placeholder until the real value is available (TODO: get real value)
+
+        totalTypes: 10000
     };
 
-    // Return all parsed data
     return {
         rows,
         corpus,
-        tokenDistribution: mapToSortedArray(tokenDistribution),
-        typeDistribution: mapToSortedArray(typeDistribution)
+        tokenDistribution: mapToArray(tokenDistribution),
+        typeDistribution: mapToArray(typeDistribution)
     };
 }
 
-// Convert a Map into a sorted array
-function mapToSortedArray(map) {
-    return [...map.entries()]
-        .map(([language, count]) => ({
-
+// Convert a Map into an array
+function mapToArray(map) {
+    return Array.from(
+        map,
+        ([language, count]) => ({
             language,
             count
-        }))
-        // Sort from highest to lowest count
-        .sort((a, b) => b.count - a.count);
+        })
+    );
 }
