@@ -56,7 +56,7 @@ export function parseBlackLab(json) {
         totalDocuments:
             json.summary?.subcorpusSize?.documents ??
             0,
-        totalTypes: 1000 // Placeholder until the real value is available
+        totalTypes: 10000 // Placeholder until the real value is available (TODO: get real value)
     };
 
     // Return all parsed data
