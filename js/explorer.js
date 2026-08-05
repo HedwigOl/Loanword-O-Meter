@@ -1,5 +1,7 @@
 // explorer.js
 
+import { openOccurrences } from "./occurrences.js";
+
 const PAGE_SIZE = 10;
 
 let container;
@@ -195,9 +197,26 @@ function createLoanwordTable(language, searching = false) {
             const tr = document.createElement("tr");
 
             tr.innerHTML = `
-                <td>${word.lemma}</td>
+                <td>
+                    <button
+                        class="lemma-link"
+                        data-lemma="${word.lemma}">
+                        ${word.lemma}
+                    </button>
+                </td>
+
                 <td>${word.count.toLocaleString()}</td>
             `;
+
+            tr.querySelector(".lemma-link")
+                .addEventListener("click", event => {
+
+                    // Prevent collapsing/expanding the language card
+                    event.stopPropagation();
+
+                    openOccurrences(word.lemma);
+
+                });
 
             tbody.appendChild(tr);
 
@@ -210,14 +229,17 @@ function createLoanwordTable(language, searching = false) {
     }
 
     if (searching && words.length === 0) {
+
         wrapper.innerHTML += `
             <p class="muted">
                 No matching loanwords.
             </p>
         `;
+
     }
 
     return wrapper;
+
 }
 
 /* pagination*/

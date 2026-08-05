@@ -1,24 +1,25 @@
 // app.js
 
-import { parseBlackLab } from "./parser.js";
-import { calculateStatistics } from "./statistics.js";
-import { updateDashboard, updateStatus } from "./ui.js";
-import { initialiseCharts, updateCharts } from "./charts.js";
+import { parseBlackLab }                      from "./parser.js";
+import { calculateStatistics }                from "./statistics.js";
+import { updateDashboard, updateStatus }      from "./ui.js";
+import { initialiseCharts, updateCharts }     from "./charts.js";
 import { initialiseExplorer, updateExplorer } from "./explorer.js";
+import { openOccurrences }                    from "./occurrences.js";
 
 // Main interface elements
-const loadButton = document.getElementById("loadBtn");
-const urlInput = document.getElementById("jsonUrl");
-const tableBody = document.getElementById("topWordsTable");
+const loadButton     = document.getElementById("loadBtn");
+const urlInput       = document.getElementById("jsonUrl");
+const tableBody      = document.getElementById("topWordsTable");
 const previousButton = document.getElementById("showLessBtn");
-const nextButton = document.getElementById("showMoreBtn");
-const pageInfo = document.getElementById("tablePageInfo");
+const nextButton     = document.getElementById("showMoreBtn");
+const pageInfo       = document.getElementById("tablePageInfo");
 
 // Application state
 let currentCorpus = null;
-let currentMode = "token";
+let currentMode   = "token";
 
-const pageSize = 10;
+const pageSize  = 10;
 let currentPage = 0;
 
 // Create empty charts and explorer
@@ -81,6 +82,45 @@ function setActiveTab() {
         .classList.toggle("active", currentMode === "type");
 }
 
+async function getNumberOfGroups(originalUrl) {
+    const url = new URL(originalUrl);
+
+    url.searchParams.set("number", "1");
+    url.searchParams.set("patt", "[]");
+    url.searchParams.set("group", "context:lemma:i:H");
+    url.searchParams.set("withspans", "false");
+    url.searchParams.set("outputformat", "json");
+
+    url.searchParams.delete("sort");
+
+    url.searchParams.set(
+        "interface",
+        JSON.stringify({
+            form: "search",
+            patternMode: "expert",
+            activeAnnotationTab: "Basic_annotations",
+            activeFilterTab: "Metadata"
+        })
+    );
+
+    const proxyUrl = url
+        .toString()
+        .replace(
+            "https://corpora.ato2.ivdnt.org",
+            "/blacklab"
+        );
+
+    const response = await fetch(proxyUrl);
+
+    if (!response.ok) {
+        throw new Error("Could not retrieve number of groups.");
+    }
+
+    const json = await response.json();
+
+    return json.summary.numberOfGroups;
+}
+
 // Load and process the selected JSON file
 async function loadCorpus() {
 
@@ -94,7 +134,12 @@ async function loadCorpus() {
     updateStatus("Loading corpus...");
 
     try {
-        const response = await fetch(url);
+        const proxyUrl = url.replace(
+            "https://corpora.ato2.ivdnt.org",
+            "/blacklab"
+        );
+
+        const response = await fetch(proxyUrl);
 
         if (!response.ok) {
             throw new Error(`${response.status} ${response.statusText}`);
@@ -102,8 +147,8 @@ async function loadCorpus() {
 
         const json = await response.json();
 
-        // Parse the BlackLab response
-        currentCorpus = parseBlackLab(json);
+        const numberOfGroups = await getNumberOfGroups(url);
+        currentCorpus = parseBlackLab(json, numberOfGroups);
 
         if (currentCorpus.rows.length === 0) {
             throw new Error("No loanword groups found.");
@@ -133,7 +178,7 @@ async function loadCorpus() {
     }
 }
 
-// Create table of top occuring loanwords
+// Create table of top occurring loanwords
 
 // Display the current page of the table
 function renderTopWords() {
@@ -149,16 +194,33 @@ function renderTopWords() {
     tableBody.innerHTML = "";
 
     rows.slice(start, end).forEach((row, index) => {
+
         const tr = document.createElement("tr");
 
         tr.innerHTML = `
             <td>${start + index + 1}</td>
-            <td>${row.lemma}</td>
+
+            <td>
+                <button
+                    class="lemma-link"
+                    data-lemma="${row.lemma}">
+                    ${row.lemma}
+                </button>
+            </td>
+
             <td>${row.language}</td>
+
             <td>${row.count.toLocaleString()}</td>
         `;
 
+        const button = tr.querySelector(".lemma-link");
+
+        button.addEventListener("click", () => {
+            openOccurrences(row.lemma);
+        });
+
         tableBody.appendChild(tr);
+
     });
 
     // Update page information

@@ -1,7 +1,7 @@
 // parser.js
 
 // Convert the BlackLab JSON response into a format to be used by the rest of the application.
-export function parseBlackLab(json) {
+export function parseBlackLab(json, totalTypes = 0) {
 
     const groups = json.hitGroups || [];
 
@@ -81,7 +81,7 @@ export function parseBlackLab(json) {
             json.summary?.subcorpusSize?.documents ??
             0,
 
-        totalTypes: 10000
+        totalTypes
     };
 
     return {

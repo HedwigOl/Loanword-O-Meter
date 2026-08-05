@@ -1,0 +1,24 @@
+{
+  "name": "loanword-o-meter",
+  "version": "1.0.0",
+  "description": "Loanword-O-Meter is een webapplicatie voor het analyseren en visualiseren van leenwoorden in een corpus. De applicatie leest een JSON-bestand in en zet de gegevens automatisch om in statistieken, grafieken en doorzoekbare overzichten.",
+  "main": "proxy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HedwigOl/Loanword-O-Meter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/HedwigOl/Loanword-O-Meter/issues"
+  },
+  "homepage": "https://github.com/HedwigOl/Loanword-O-Meter#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "http-proxy-middleware": "^4.2.0"
+  }
+}
