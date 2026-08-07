@@ -103,12 +103,15 @@ async function getNumberOfGroups(originalUrl) {
         })
     );
 
-    const proxyUrl = url
-        .toString()
-        .replace(
-            "https://corpora.ato2.ivdnt.org",
-            "/blacklab"
-        );
+    // Make sure there are no accidental double slashes in the path
+    url.pathname = url.pathname.replace(/\/+/g, "/");
+
+    const proxyUrl =
+        "/blacklab" +
+        url.pathname +
+        url.search;
+
+    console.log("GROUPS URL:", proxyUrl);
 
     const response = await fetch(proxyUrl);
 
@@ -120,6 +123,7 @@ async function getNumberOfGroups(originalUrl) {
 
     return json.summary.numberOfGroups;
 }
+
 
 // Load and process the selected JSON file
 async function loadCorpus() {
@@ -134,21 +138,37 @@ async function loadCorpus() {
     updateStatus("Loading corpus...");
 
     try {
-        const proxyUrl = url.replace(
-            "https://corpora.ato2.ivdnt.org",
-            "/blacklab"
-        );
+        // Parse the original BlackLab URL
+        const parsedUrl = new URL(url);
+
+        // Remove accidental double slashes from the path
+        parsedUrl.pathname =
+            parsedUrl.pathname.replace(/\/+/g, "/");
+
+        // Convert the external URL to the local proxy URL
+        const proxyUrl =
+            "/blacklab" +
+            parsedUrl.pathname +
+            parsedUrl.search;
+
+        console.log("ORIGINAL URL:", url);
+        console.log("PROXY URL:", proxyUrl);
 
         const response = await fetch(proxyUrl);
 
         if (!response.ok) {
-            throw new Error(`${response.status} ${response.statusText}`);
+            throw new Error(
+                `${response.status} ${response.statusText}`
+            );
         }
 
         const json = await response.json();
 
-        const numberOfGroups = await getNumberOfGroups(url);
-        currentCorpus = parseBlackLab(json, numberOfGroups);
+        const numberOfGroups =
+            await getNumberOfGroups(url);
+
+        currentCorpus =
+            parseBlackLab(json, numberOfGroups);
 
         if (currentCorpus.rows.length === 0) {
             throw new Error("No loanword groups found.");
@@ -174,7 +194,9 @@ async function loadCorpus() {
 
     } catch (error) {
         console.error(error);
-        updateStatus("Could not load corpus: " + error.message);
+        updateStatus(
+            "Could not load corpus: " + error.message
+        );
     }
 }
 
