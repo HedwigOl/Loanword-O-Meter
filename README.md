@@ -35,4 +35,6 @@ Loanword-O-Meter is een webapplicatie voor het analyseren en visualiseren van le
    * lijst met de voorkomende leenwoorden;
    * een doorzoekbaar overzicht van leenwoorden per brontaal.
 
+---
+Dashboardapplicatie voor het weergeven van statistieken verkregen met behulp van de Loanword-O-Meter (https://github.com/instituutnederlandsetaal/leenwoordenzoeker?tab=readme-ov-file). Licence holders van deze Loanword-O-Meter zijn Nicoline van der Sijs (data), Kaspar Beelen en Joey Stofberg (code).
 
