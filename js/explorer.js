@@ -214,7 +214,10 @@ function createLoanwordTable(language, searching = false) {
                     // Prevent collapsing/expanding the language card
                     event.stopPropagation();
 
-                    openOccurrences(word.lemma);
+                    openOccurrences(
+                        word.lemma,
+                        document.getElementById("jsonUrl").value.trim()
+                    );
 
                 });
 

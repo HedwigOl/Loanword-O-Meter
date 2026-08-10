@@ -14,7 +14,11 @@ app.use(
         target: "https://corpora.ato2.ivdnt.org",
         changeOrigin: true,
         secure: true,
-        logLevel: "debug"
+        logLevel: "debug",
+
+        pathRewrite: {
+            "^/blacklab": ""
+        }
     })
 );
 

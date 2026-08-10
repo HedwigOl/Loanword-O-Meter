@@ -1,6 +1,7 @@
 // occurrences.js
 
 let selectedLemma = null;
+let selectedCorpusUrl = null;
 let occurrencePage = 0;
 const occurrencePageSize = 10;
 
@@ -20,22 +21,27 @@ closeOccurrences.addEventListener("click", () => {
 
 // Navigation
 occPrev.addEventListener("click", () => {
-
     if (occurrencePage > 0) {
         occurrencePage--;
-        loadOccurrences(selectedLemma);
+        loadOccurrences(
+            selectedLemma,
+            selectedCorpusUrl
+        );
     }
 });
 
 occNext.addEventListener("click", () => {
     occurrencePage++;
-    loadOccurrences(selectedLemma);
+    loadOccurrences(
+        selectedLemma,
+        selectedCorpusUrl
+    );
 });
 
 // Open occurrences panel
-export function openOccurrences(lemma) {
-
+export function openOccurrences(lemma, corpusUrl) {
     selectedLemma = lemma;
+    selectedCorpusUrl = corpusUrl;
     occurrencePage = 0;
 
     occurrenceTitle.textContent =
@@ -43,49 +49,46 @@ export function openOccurrences(lemma) {
 
     occurrencePanel.classList.remove("hidden");
 
-    loadOccurrences(lemma);
+    loadOccurrences(lemma, corpusUrl);
 }
 
+async function loadOccurrences(lemma, corpusUrl) {
 
-// Load occurrences from BlackLab
-async function loadOccurrences(lemma) {
+    if (!corpusUrl) {
+        console.error("No corpus URL provided.");
+        return;
+    }
 
-    const baseUrl =
-        "https://corpora.ato2.ivdnt.org/blacklab-server/leenwoorden/hits";
+    const url = new URL(corpusUrl);
 
-    const url = new URL(baseUrl);
-
+    // Pagination
     url.searchParams.set(
         "first",
-        occurrencePage * occurrencePageSize
+        String(occurrencePage * occurrencePageSize)
     );
 
     url.searchParams.set(
         "number",
-        occurrencePageSize
+        String(occurrencePageSize)
     );
 
+    // Search for this lemma
     url.searchParams.set(
         "patt",
         `<term lemma="${lemma}"/>`
     );
 
-    url.searchParams.set(
-        "adjusthits",
-        "true"
-    );
+    // Occurrence search should NOT be grouped
+    url.searchParams.delete("group");
+    url.searchParams.delete("sort");
+    url.searchParams.delete("op");
+    url.searchParams.delete("subcorpussize");
 
-    url.searchParams.set(
-        "withspans",
-        "false"
-    );
+    url.searchParams.set("adjusthits", "true");
+    url.searchParams.set("withspans", "false");
+    url.searchParams.set("outputformat", "json");
 
-    url.searchParams.set(
-        "outputformat",
-        "json"
-    );
-
-    // Use local proxy
+    // Convert to local proxy URL
     const proxyUrl = url.toString().replace(
         "https://corpora.ato2.ivdnt.org",
         "/blacklab"
@@ -97,6 +100,14 @@ async function loadOccurrences(lemma) {
         const response = await fetch(proxyUrl);
 
         if (!response.ok) {
+            const errorText = await response.text();
+
+            console.error(
+                "Occurrence request failed:",
+                response.status,
+                errorText
+            );
+
             throw new Error(
                 `${response.status} ${response.statusText}`
             );
@@ -108,13 +119,9 @@ async function loadOccurrences(lemma) {
 
         renderOccurrences(json.hits || []);
 
-        updateOccurrenceNavigation(
-            json.summary
-        );
-
+        updateOccurrenceNavigation(json.summary);
 
     } catch (error) {
-
         console.error(error);
 
         occurrenceList.innerHTML =
@@ -128,10 +135,17 @@ function renderOccurrences(hits) {
 
     hits.forEach(hit => {
 
-        const left = (hit.left?.word || []).join(" ");
-        const keyword = (hit.match?.word || []).join(" ");
-        const right = (hit.right?.word || []).join(" ");
-        const row = document.createElement("div");
+        const left =
+            (hit.left?.word || []).join(" ");
+
+        const keyword =
+            (hit.match?.word || []).join(" ");
+
+        const right =
+            (hit.right?.word || []).join(" ");
+
+        const row =
+            document.createElement("div");
 
         row.className = "occurrence-row";
 

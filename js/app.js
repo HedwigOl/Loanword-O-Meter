@@ -85,7 +85,6 @@ function setActiveTab() {
 async function getNumberOfGroups(originalUrl) {
     const url = new URL(originalUrl);
 
-    url.searchParams.set("number", "1");
     url.searchParams.set("patt", "[]");
     url.searchParams.set("group", "context:lemma:i:H");
     url.searchParams.set("withspans", "false");
@@ -238,7 +237,7 @@ function renderTopWords() {
         const button = tr.querySelector(".lemma-link");
 
         button.addEventListener("click", () => {
-            openOccurrences(row.lemma);
+            openOccurrences(row.lemma, urlInput.value.trim());
         });
 
         tableBody.appendChild(tr);
