@@ -24,14 +24,17 @@ Loanword-O-Meter is een webapplicatie voor het analyseren en visualiseren van le
 # Gebruik
 
 1. Open de projectmap in Visual Studio Code.
-2. Start de applicatie met **Live Server**.
-3. Voer de URL van een BlackLab JSON-bestand in of gebruik een lokale JSON-uitvoer.
-4. Klik op **Load**.
-5. De applicatie verwerkt de gegevens automatisch en toont:
+3. Start de localhost `node proxy.js`.
+4. Ga naar de localhost in de browser.
+5. Voer de URL van een BlackLab JSON-bestand in of gebruik een lokale JSON-uitvoer.
+6. Klik op **Load**.
+7. De applicatie verwerkt de gegevens automatisch en toont:
 
    * overzicht van algemene statistieken;
    * grafieken voor type-based en token-based analyse;
    * lijst met de voorkomende leenwoorden;
    * een doorzoekbaar overzicht van leenwoorden per brontaal.
 
+---
+Dashboardapplicatie voor het weergeven van statistieken verkregen met behulp van de Loanword-O-Meter (https://github.com/instituutnederlandsetaal/leenwoordenzoeker?tab=readme-ov-file). Licence holders van deze Loanword-O-Meter zijn Nicoline van der Sijs (data), Kaspar Beelen en Joey Stofberg (code).
 
