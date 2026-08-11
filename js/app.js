@@ -10,6 +10,7 @@ import { openOccurrences }                    from "./occurrences.js";
 // Main interface elements
 const loadButton     = document.getElementById("loadBtn");
 const urlInput       = document.getElementById("jsonUrl");
+const loaderSection  = document.getElementById("loaderSection");
 const tableBody      = document.getElementById("topWordsTable");
 const previousButton = document.getElementById("showLessBtn");
 const nextButton     = document.getElementById("showMoreBtn");
@@ -34,6 +35,14 @@ urlInput.addEventListener("keydown", event => {
         loadCorpus();
     }
 });
+
+if (
+    window.location.hostname !== "localhost" &&
+    window.location.hostname !== "127.0.0.1"
+) {
+    loaderSection.style.display = "none";
+    loadCorpus();
+}
 
 // Switch to token mode
 document.getElementById("tokenTab").addEventListener("click", () => {
@@ -82,6 +91,26 @@ function setActiveTab() {
         .classList.toggle("active", currentMode === "type");
 }
 
+function getRequestUrl(url) {
+    // Local development: use the proxy
+    if (
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1"
+    ) {
+        return "/blacklab" + url.pathname + url.search;
+    }
+
+    return url.href;
+}
+
+export function getProductionCorpusUrl() {
+    const corpus = document.location.href
+        .replace(/.*blacklab-frontend\//, "")
+        .replace(/\/.*/, "");
+
+    return `${window.location.origin}/blacklab-server/corpora/${encodeURIComponent(corpus)}/hits`;
+}
+
 async function getNumberOfGroups(originalUrl) {
     const url = new URL(originalUrl);
 
@@ -117,14 +146,24 @@ async function getNumberOfGroups(originalUrl) {
 // Load and process the selected JSON file
 async function loadCorpus() {
 
-    const url = urlInput.value.trim();
+    let url;
 
-    if (!url) {
-        updateStatus("Please enter a JSON URL.");
-        return;
+    if (
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+    ) {
+        url = getProductionCorpusUrl();
+    } else {
+        url = urlInput.value.trim();
+
+        if (!url) {
+            updateStatus("Please enter a JSON URL.");
+            return;
+        }
     }
 
     updateStatus("Loading corpus...");
+
 
     try {
         // Parse the original BlackLab URL
@@ -134,16 +173,12 @@ async function loadCorpus() {
         parsedUrl.pathname =
             parsedUrl.pathname.replace(/\/+/g, "/");
 
-        // Convert the external URL to the local proxy URL
-        const proxyUrl =
-            "/blacklab" +
-            parsedUrl.pathname +
-            parsedUrl.search;
+        const requestUrl = getRequestUrl(parsedUrl);
 
         console.log("ORIGINAL URL:", url);
-        console.log("PROXY URL:", proxyUrl);
+        console.log("REQUEST URL:", requestUrl);
 
-        const response = await fetch(proxyUrl);
+        const response = await fetch(requestUrl);
 
         if (!response.ok) {
             throw new Error(

@@ -1,5 +1,7 @@
 // occurrences.js
 
+import { getProductionCorpusUrl } from "./app.js";
+
 let selectedLemma = null;
 let selectedCorpusUrl = null;
 let occurrencePage = 0;
@@ -88,16 +90,18 @@ async function loadOccurrences(lemma, corpusUrl) {
     url.searchParams.set("withspans", "false");
     url.searchParams.set("outputformat", "json");
 
-    // Convert to local proxy URL
-    const proxyUrl = url.toString().replace(
-        "https://corpora.ato2.ivdnt.org",
-        "/blacklab"
-    );
+    // Local development: use the proxy
+// Production: request BlackLab directly
+    const requestUrl =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1"
+            ? "/blacklab" + url.pathname + url.search
+            : url.href;
 
-    console.log("Occurrence request:", proxyUrl);
+    console.log("Occurrence request:", requestUrl);
 
     try {
-        const response = await fetch(proxyUrl);
+        const response = await fetch(requestUrl);
 
         if (!response.ok) {
             const errorText = await response.text();
