@@ -11,16 +11,18 @@ app.use(express.static(__dirname));
 app.use(
     "/blacklab",
     createProxyMiddleware({
-        target: "https://corpora.ato2.ivdnt.org",
-        changeOrigin: true,
-        secure: true,
-        logLevel: "debug",
-
-        pathRewrite: {
-            "^/blacklab": ""
+      target: "https://corpora.ato2.ivdnt.org",
+      changeOrigin: true,
+      secure: true,
+  
+      on: {
+        proxyReq: (proxyReq, req) => {
+          console.log("IN :", req.originalUrl);
+          console.log("OUT:", proxyReq.path);
         }
+      }
     })
-);
+  );
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);

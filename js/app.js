@@ -92,16 +92,6 @@ async function getNumberOfGroups(originalUrl) {
 
     url.searchParams.delete("sort");
 
-    url.searchParams.set(
-        "interface",
-        JSON.stringify({
-            form: "search",
-            patternMode: "expert",
-            activeAnnotationTab: "Basic_annotations",
-            activeFilterTab: "Metadata"
-        })
-    );
-
     // Make sure there are no accidental double slashes in the path
     url.pathname = url.pathname.replace(/\/+/g, "/");
 
