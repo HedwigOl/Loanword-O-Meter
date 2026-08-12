@@ -15,7 +15,7 @@ const tableBody      = document.getElementById("topWordsTable");
 const previousButton = document.getElementById("showLessBtn");
 const nextButton     = document.getElementById("showMoreBtn");
 const pageInfo       = document.getElementById("tablePageInfo");
-
+const blsApiVersion = 'v4';
 // Application state
 let currentCorpus = null;
 let currentMode   = "token";
@@ -108,54 +108,66 @@ export function getProductionCorpusUrl() {
         .replace(/.*blacklab-frontend\//, "")
         .replace(/\/.*/, "");
 
-    return `${window.location.origin}/blacklab-server/corpora/${encodeURIComponent(corpus)}/hits`;
+    return `${window.location.origin}/blacklab-server/${encodeURIComponent(corpus)}/hits`;
 }
 
 async function getNumberOfGroups(originalUrl) {
-    const url = new URL(originalUrl);
+    let url = originalUrl; // new URL(originalUrl);
 
     url.searchParams.set("patt", "[]");
     url.searchParams.set("group", "context:lemma:i:H");
     url.searchParams.set("withspans", "false");
     url.searchParams.set("outputformat", "json");
-
+    
     url.searchParams.delete("sort");
 
     // Make sure there are no accidental double slashes in the path
     url.pathname = url.pathname.replace(/\/+/g, "/");
 
-    const proxyUrl =
-        "/blacklab" +
-        url.pathname +
-        url.search;
+    if (useProxy())
+    { 
+      const proxyUrl =
+          "/blacklab" +
+          url.pathname +
+           url.search;
 
-    console.log("GROUPS URL:", proxyUrl);
+       url = proxyUrl;
+       console.log("GROUPS URL (with proxy):", proxyUrl);
+    }
 
-    const response = await fetch(proxyUrl);
+    const response = await fetch(url);
 
     if (!response.ok) {
         throw new Error("Could not retrieve number of groups.");
     }
 
     const json = await response.json();
-
+    console.log(json);
     return json.summary.numberOfGroups;
 }
 
 
+function useProxy() {
+      return  (window.location.hostname == "localhost" || window.location.hostname == "127.0.0.1")
+
+}
 // Load and process the selected JSON file
 async function loadCorpus() {
 
     let url;
 
-    if (
-        window.location.hostname !== "localhost" &&
-        window.location.hostname !== "127.0.0.1"
-    ) {
-        url = getProductionCorpusUrl();
+    if (!useProxy()) {
+        url = new URL(getProductionCorpusUrl());
+        url.searchParams.set("patt", "<term/>");
+        url.searchParams.set("outputformat", "json");
+        url.searchParams.set("withspans", "true");
+        url.searchParams.set("number", "500000");
+        url.searchParams.set("group", "span-attribute:with-spans[term]:language:i,context:lemma:i:H");
+        url.searchParams.set("adjusthits", "true");
+        // url = url.toString();
     } else {
         url = urlInput.value.trim();
-
+        url = new URL(url);
         if (!url) {
             updateStatus("Please enter a JSON URL.");
             return;
@@ -167,7 +179,7 @@ async function loadCorpus() {
 
     try {
         // Parse the original BlackLab URL
-        const parsedUrl = new URL(url);
+        const parsedUrl = url;
 
         // Remove accidental double slashes from the path
         parsedUrl.pathname =
@@ -188,6 +200,7 @@ async function loadCorpus() {
 
         const json = await response.json();
 
+        console.log(json);
         const numberOfGroups =
             await getNumberOfGroups(url);
 
