@@ -165,12 +165,6 @@ async function loadCorpus() {
         url.searchParams.set("withspans", "true");
         url.searchParams.set("number", "500000");
         url.searchParams.set("group", "span-attribute:with-spans[term]:language:i,context:lemma:i:H");
-<<<<<<< HEAD
-        // url.searchParams.set("adjusthits", "true");
-=======
-        url.searchParams.set("adjusthits", "true");
->>>>>>> c49a226b8757a73015532aad9088c075ebf52e56
-        // url = url.toString();
     } else {
         url = urlInput.value.trim();
         url = new URL(url);
