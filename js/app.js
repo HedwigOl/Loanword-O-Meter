@@ -114,11 +114,13 @@ export function getProductionCorpusUrl() {
 async function getNumberOfGroups(originalUrl) {
     let url = originalUrl; // new URL(originalUrl);
     url.pathname = url.pathname.replace("%3A", ':');
+
     url.searchParams.set("patt", "[]");
     url.searchParams.set("group", "context:lemma:i:H");
     url.searchParams.set("withspans", "false");
     url.searchParams.set("outputformat", "json");
     url.searchParams.set("rid", self.crypto.randomUUID()); 
+
     url.searchParams.delete("sort");
 
     // Make sure there are no accidental double slashes in the path
@@ -163,7 +165,11 @@ async function loadCorpus() {
         url.searchParams.set("withspans", "true");
         url.searchParams.set("number", "500000");
         url.searchParams.set("group", "span-attribute:with-spans[term]:language:i,context:lemma:i:H");
+<<<<<<< HEAD
         // url.searchParams.set("adjusthits", "true");
+=======
+        url.searchParams.set("adjusthits", "true");
+>>>>>>> c49a226b8757a73015532aad9088c075ebf52e56
         // url = url.toString();
     } else {
         url = urlInput.value.trim();
