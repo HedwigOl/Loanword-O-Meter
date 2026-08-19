@@ -2,15 +2,15 @@
 
 import { openOccurrences } from "./occurrences.js";
 
-const PAGE_SIZE = 10;
-
 let container;
 let searchBox;
-let languages = [];
+
+let languages  = [];
 let searchTerm = "";
 
-const expanded = new Set();
+const expanded  = new Set();
 const pageIndex = new Map();
+const PAGE_SIZE = 10;
 
 /* initialise */
 export function initialiseExplorer() {
@@ -24,20 +24,13 @@ export function initialiseExplorer() {
 }
 
 /* Build data */
-
 export function updateExplorer(
     homFalseRows,
     generalRows,
     ambiguousLemmas
 ) {
 
-    const languageMap = new Map();
-
-    // --------------------------------------------------
-    // Build lookup: lemma -> possible languages
-    // from the general corpus
-    // --------------------------------------------------
-
+    const languageMap    = new Map();
     const languageLookup = new Map();
 
     generalRows.forEach(row => {
@@ -63,12 +56,6 @@ export function updateExplorer(
         }
 
     });
-
-
-    // --------------------------------------------------
-    // Normal languages
-    // ONLY hom=false
-    // --------------------------------------------------
 
     homFalseRows.forEach(row => {
 
@@ -102,12 +89,6 @@ export function updateExplorer(
 
     });
 
-
-    // --------------------------------------------------
-    // Ambiguous loanwords
-    // Group them by POSSIBLE LANGUAGE
-    // --------------------------------------------------
-
     const ambiguousLanguageMap = new Map();
 
     generalRows.forEach(row => {
@@ -140,11 +121,7 @@ export function updateExplorer(
 
     });
 
-
-    // --------------------------------------------------
-    // Sort normal language groups
-    // --------------------------------------------------
-
+    // Sort languages
     languages = [...languageMap.values()];
 
     languages.forEach(language => {
@@ -162,11 +139,7 @@ export function updateExplorer(
         b.occurrences - a.occurrences
     );
 
-
-    // --------------------------------------------------
-    // Create special "Ambigue leenwoorden" category
-    // --------------------------------------------------
-
+    //Create ambiguous words category
     const ambiguousLanguages =
         [...ambiguousLanguageMap.values()];
 
@@ -188,7 +161,6 @@ export function updateExplorer(
         b.occurrences - a.occurrences
     );
 
-
     const ambiguousCategory = {
         language: "Ambigue leenwoorden",
         occurrences: ambiguousLanguages.reduce(
@@ -199,16 +171,15 @@ export function updateExplorer(
         loanwords: ambiguousLanguages
     };
 
-
-    // Add ambiguous category LAST
+    // Add ambiguous category last
     languages.push(ambiguousCategory);
 
     expanded.clear();
 
     renderExplorer();
 }
-/* Render */
 
+/* Render */
 function renderExplorer() {
 
     container.innerHTML = "";
@@ -234,30 +205,24 @@ function renderExplorer() {
 
 /* Language card*/
 function createLanguage(language) {
-
     const card = document.createElement("div");
     card.className = "language-card";
 
-    const matchesSearch =
-        searchTerm &&
-        (
-            language.language.toLowerCase().includes(searchTerm) ||
-            language.loanwords.some(word =>
-                language.language === "Ambigue leenwoorden"
-                    ? word.loanwords.some(loanword =>
-                        loanword.lemma
-                            .toLowerCase()
-                            .includes(searchTerm)
-                    )
-                    : word.lemma
-                        .toLowerCase()
-                        .includes(searchTerm)
-            )
-        );
+    const isAmbiguous = language.language === "Ambigue leenwoorden";
+
+    const matchesSearch = searchTerm && (
+        language.language.toLowerCase().includes(searchTerm) ||
+        language.loanwords.some(word =>
+            isAmbiguous
+                ? word.loanwords.some(w =>
+                    w.lemma.toLowerCase().includes(searchTerm)
+                )
+                : word.lemma.toLowerCase().includes(searchTerm)
+        )
+    );
 
     const open =
-        expanded.has(language.language) ||
-        matchesSearch;
+        expanded.has(language.language) || matchesSearch;
 
     const header = document.createElement("div");
     header.className = "language-header";
@@ -267,50 +232,30 @@ function createLanguage(language) {
             ${open ? "▼" : "▶"}
             <strong>${language.language}</strong>
         </div>
-
         <div class="language-summary">
             ${language.occurrences.toLocaleString()} voorkomens
             •
-            ${language.language === "Ambigue leenwoorden"
-                ? language.loanwords.length.toLocaleString() + " talen"
-                : language.loanwords.length.toLocaleString() + " leenwoorden"
-            }
+            ${language.loanwords.length.toLocaleString()}
+            ${isAmbiguous ? "talen" : "leenwoorden"}
         </div>
     `;
 
     header.onclick = () => {
-
-        if (expanded.has(language.language)) {
-            expanded.delete(language.language);
-        } else {
-            expanded.add(language.language);
-        }
+        expanded.has(language.language)
+            ? expanded.delete(language.language)
+            : expanded.add(language.language);
 
         renderExplorer();
-
     };
 
     card.appendChild(header);
 
-    if (!open) return card;
-
-
-    // Special rendering for ambiguous loanwords
-    if (language.language === "Ambigue leenwoorden") {
-
+    if (open) {
         card.appendChild(
-            createAmbiguousLanguages(language)
+            isAmbiguous
+                ? createAmbiguousLanguages(language)
+                : createLoanwordTable(language, matchesSearch)
         );
-
-    } else {
-
-        card.appendChild(
-            createLoanwordTable(
-                language,
-                matchesSearch
-            )
-        );
-
     }
 
     return card;
@@ -535,7 +480,6 @@ function createLoanwordTable(language, searching = false) {
 }
 
 /* pagination*/
-
 function createPagination(language) {
 
     const controls = document.createElement("div");
@@ -614,7 +558,6 @@ export function clearExplorerSearch() {
 export function collapseAllLanguages() {
 
     expanded.clear();
-
     renderExplorer();
 
 }
@@ -658,5 +601,4 @@ export function getLoanwordCount(languageName) {
     return language
         ? language.loanwords.length
         : 0;
-
 }

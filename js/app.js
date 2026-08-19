@@ -281,6 +281,27 @@ function getAmbiguousLemmas(json) {
     return lemmas;
 }
 
+async function fetchJson(url) {
+
+    const parsedUrl = new URL(url);
+
+    parsedUrl.pathname =
+        parsedUrl.pathname.replace(/\/+/g, "/");
+
+    const requestUrl = getRequestUrl(parsedUrl);
+
+    const response = await fetch(requestUrl);
+
+    if (!response.ok) {
+        throw new Error(
+            `${response.status} ${response.statusText}`
+        );
+    }
+
+    return response.json();
+}
+
+// Load and process the selected JSON file
 // Load and process the selected JSON file
 async function loadCorpus() {
 
@@ -304,92 +325,29 @@ async function loadCorpus() {
 
     try {
 
-        // --------------------------------------------------
-        // 1. Parse the original BlackLab URL
-        // --------------------------------------------------
-
-        const parsedUrl = new URL(url);
-
-        parsedUrl.pathname =
-            parsedUrl.pathname.replace(/\/+/g, "/");
-
-        const requestUrl = getRequestUrl(parsedUrl);
-
+        // Get the general corpus
         console.log("ORIGINAL URL:", url);
-        console.log("REQUEST URL:", requestUrl);
 
-
-        // --------------------------------------------------
-        // 2. Fetch the general corpus
-        // --------------------------------------------------
-
-        const response = await fetch(requestUrl);
-
-        if (!response.ok) {
-            throw new Error(
-                `${response.status} ${response.statusText}`
-            );
-        }
-
-        const json = await response.json();
-
-
-        // --------------------------------------------------
-        // 3. Get number of groups
-        // --------------------------------------------------
+        const json = await fetchJson(url);
 
         const numberOfGroups =
             await getNumberOfGroups(url);
 
-
-        // --------------------------------------------------
-        // 4. Parse the general corpus
-        // --------------------------------------------------
-
         currentCorpus =
             parseBlackLab(json, numberOfGroups);
 
-        if (currentCorpus.rows.length === 0) {
-            throw new Error("No loanword groups found.");
-        }
 
-
-        // --------------------------------------------------
-        // 5. Fetch hom=false corpus
-        // --------------------------------------------------
-
+        // Get unambiguous loanwords (hom=false)
         const homFalseUrl =
             createHomUrl(url, "false");
-
-        const homFalseRequestUrl =
-            getRequestUrl(homFalseUrl);
 
         console.log(
             "HOM=FALSE URL:",
             homFalseUrl.href
         );
 
-        console.log(
-            "HOM=FALSE REQUEST URL:",
-            homFalseRequestUrl
-        );
-
-        const homFalseResponse =
-            await fetch(homFalseRequestUrl);
-
-        if (!homFalseResponse.ok) {
-            throw new Error(
-                `Could not retrieve hom=false data: ${homFalseResponse.status} ${homFalseResponse.statusText}`
-            );
-        }
-
         const homFalseJson =
-            await homFalseResponse.json();
-
-        console.log(
-            "HOM=FALSE JSON:",
-            homFalseJson
-        );
+            await fetchJson(homFalseUrl);
 
         const homFalseCorpus =
             parseBlackLab(
@@ -401,59 +359,20 @@ async function loadCorpus() {
             homFalseCorpus;
 
 
-        // --------------------------------------------------
-        // 6. Fetch hom=true corpus
-        // --------------------------------------------------
-
+        // Get ambiguous loanwords (hom=true)
         const homTrueUrl =
             createHomUrl(url, "true");
-
-        const homTrueRequestUrl =
-            getRequestUrl(homTrueUrl);
 
         console.log(
             "HOM=TRUE URL:",
             homTrueUrl.href
         );
 
-        console.log(
-            "HOM=TRUE REQUEST URL:",
-            homTrueRequestUrl
-        );
-
-        const homTrueResponse =
-            await fetch(homTrueRequestUrl);
-
-        if (!homTrueResponse.ok) {
-            throw new Error(
-                `Could not retrieve hom=true data: ${homTrueResponse.status} ${homTrueResponse.statusText}`
-            );
-        }
-
         const homTrueJson =
-            await homTrueResponse.json();
-
-        console.log(
-            "HOM=TRUE JSON:",
-            homTrueJson
-        );
-
-
-        // --------------------------------------------------
-        // 7. Get ambiguous lemmas
-        // --------------------------------------------------
+            await fetchJson(homTrueUrl);
 
         const ambiguousLemmas =
             getAmbiguousLemmas(homTrueJson);
-        
-        const explorerRows = currentCorpus.rows.filter(row =>
-            ambiguousLemmas.has(row.lemma.toLowerCase()) ||
-            currentHomFalseCorpus.rows.some(
-            loanRow =>
-                loanRow.lemma.toLowerCase() ===
-                row.lemma.toLowerCase()
-            )
-        );
 
         console.log(
             "AMBIGUOUS LEMMAS:",
@@ -461,10 +380,13 @@ async function loadCorpus() {
         );
 
 
-        // --------------------------------------------------
-        // 8. Create corpus used by the charts
-        // --------------------------------------------------
+        // Check that the corpus contains loanwords
+        if (currentCorpus.rows.length === 0) {
+            throw new Error("No loanword groups found.");
+        }
 
+
+        // Prepare chart data
         currentChartCorpus =
             createChartCorpus(
                 currentCorpus,
@@ -472,20 +394,11 @@ async function loadCorpus() {
             );
 
 
-        // --------------------------------------------------
-        // 9. Reset table page
-        // --------------------------------------------------
-
+        // Reset pagination
         currentPage = 0;
 
 
-        // --------------------------------------------------
-        // 10. Calculate dashboard statistics
-        //
-        // Loanword statistics = hom=false
-        // Language statistics = general corpus
-        // --------------------------------------------------
-
+        // Calculate statistics
         const statistics =
             calculateStatistics(
                 homFalseCorpus.rows,
@@ -494,10 +407,7 @@ async function loadCorpus() {
             );
 
 
-        // --------------------------------------------------
-        // 11. Update the interface
-        // --------------------------------------------------
-
+        // Update interface
         updateDashboard(statistics);
 
         updateCharts(
@@ -517,10 +427,6 @@ async function loadCorpus() {
         );
 
 
-        // --------------------------------------------------
-        // 12. Update status
-        // --------------------------------------------------
-
         updateStatus(
             `Loaded ${currentCorpus.rows.length.toLocaleString()} loanword types.`
         );
@@ -536,12 +442,10 @@ async function loadCorpus() {
 }
 
 // Create table of top occurring loanwords
-
 function renderTopWords(loanwordRows, generalRows) {
 
     if (!currentCorpus) return;
 
-    // Create a lookup from lemma to source language
     const languageByLemma = new Map();
 
     generalRows.forEach(row => {
@@ -551,8 +455,6 @@ function renderTopWords(loanwordRows, generalRows) {
         );
     });
 
-    // Use ONLY hom=false rows for the top words,
-    // but get their language from the general query.
     const rows = loanwordRows
         .map(row => ({
             ...row,
