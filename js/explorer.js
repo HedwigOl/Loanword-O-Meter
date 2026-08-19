@@ -8,7 +8,7 @@ let container;
 let searchBox;
 let languages = [];
 let searchTerm = "";
-
+let urlForOccurrences;
 const expanded = new Set();
 const pageIndex = new Map();
 
@@ -25,8 +25,9 @@ export function initialiseExplorer() {
 
 /* Build data */
 
-export function updateExplorer(rows) {
+export function updateExplorer(rows, _urlForOccurrences) {
 
+    urlForOccurrences = _urlForOccurrences;
     const map = new Map();
 
     rows.forEach(row => {
@@ -216,7 +217,8 @@ function createLoanwordTable(language, searching = false) {
 
                     openOccurrences(
                         word.lemma,
-                        document.getElementById("jsonUrl").value.trim()
+ 			urlForOccurrences
+                        //document.getElementById("jsonUrl").value.trim()
                     );
 
                 });
