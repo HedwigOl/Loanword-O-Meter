@@ -16,7 +16,8 @@ const COLORS = [
     "#00838F",
     "#3F51B5",
     "#7B1FA2",
-    "#616161"
+    "#60035d",
+    "#616161",
 ];
 
 // Create the charts
@@ -118,21 +119,33 @@ export function updateCharts(parsed, mode) {
         : [...parsed.typeDistribution];
 
     // Sort languages by frequency
-    distribution.sort((a, b) => b.count - a.count);
+    const ambiguousItem = distribution.find(
+        item => item.language === "Ambigue leenwoorden"
+    );
+
+    const regularItems = distribution.filter(
+        item => item.language !== "Ambigue leenwoorden"
+    );
+
+    regularItems.sort((a, b) => b.count - a.count);
 
     // Keep only the ten largest languages
-    const topTen = distribution.slice(0, 10);
+    const topTen = regularItems.slice(0, 10);
 
-    // Combine all remaining languages into "Other"
-    const otherCount = distribution
+    // Combine all remaining languages into "Andere talen"
+    const otherCount = regularItems
         .slice(10)
         .reduce((sum, item) => sum + item.count, 0);
 
     if (otherCount > 0) {
         topTen.push({
-            language: "Other",
+            language: "Andere talen",
             count: otherCount
         });
+    }
+
+    if (ambiguousItem) {
+        topTen.push(ambiguousItem);
     }
 
     // Update the doughnut chart

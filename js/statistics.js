@@ -1,12 +1,18 @@
-// statistics.js
+export function calculateStatistics(
+    loanwordRows,
+    corpus = {},
+    generalRows = []
+) {
 
-export function calculateStatistics(rows, corpus = {}) {
+    // Statistics based on hom=false
+    const loanOccurrences = calculateLoanOccurrences(loanwordRows);
+    const uniqueLoanwords = loanwordRows.length;
 
-    const loanOccurrences = calculateLoanOccurrences(rows);
-    const uniqueLoanwords = rows.length;
     const totalWords = corpus.totalTokens ?? 0;
     const totalTypes = corpus.totalTypes ?? 0;
-    const topLanguage = findTopLanguage(rows);
+
+    // Language information based on the original query
+    const topLanguage = findTopLanguage(generalRows);
 
     const occurrencePercent =
         totalWords > 0
@@ -19,8 +25,8 @@ export function calculateStatistics(rows, corpus = {}) {
             : null;
 
     const sourceLanguages = new Set(
-        rows.map(row => row.language)
-        ).size;
+        generalRows.map(row => row.language)
+    ).size;
 
     return {
         loanOccurrences,
@@ -34,21 +40,25 @@ export function calculateStatistics(rows, corpus = {}) {
     };
 }
 
-// Sum up number of loanword occurences
+
+// Sum up number of loanword occurrences
 function calculateLoanOccurrences(rows) {
     return rows.reduce((sum, row) => {
         return sum + row.count;
     }, 0);
 }
 
+
 // Select language with most contributions
 function findTopLanguage(rows) {
     const languageTotals = {};
+
     rows.forEach(row => {
 
         if (!languageTotals[row.language]) {
             languageTotals[row.language] = 0;
         }
+
         languageTotals[row.language] += row.count;
     });
 
@@ -61,5 +71,6 @@ function findTopLanguage(rows) {
             topLanguage = language;
         }
     }
+
     return topLanguage;
 }

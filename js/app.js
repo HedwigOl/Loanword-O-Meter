@@ -15,14 +15,16 @@ const tableBody      = document.getElementById("topWordsTable");
 const previousButton = document.getElementById("showLessBtn");
 const nextButton     = document.getElementById("showMoreBtn");
 const pageInfo       = document.getElementById("tablePageInfo");
-const blsApiVersion = 'v4';
+
 // Application state
 let currentCorpus = null;
+let currentHomFalseCorpus = null;
+let currentChartCorpus = null;
 let currentMode   = "token";
 
 const pageSize  = 10;
 let currentPage = 0;
-let urlForOccurrences;
+
 // Create empty charts and explorer
 initialiseCharts();
 initialiseExplorer();
@@ -50,7 +52,7 @@ document.getElementById("tokenTab").addEventListener("click", () => {
 
     currentMode = "token";
     setActiveTab();
-    updateCharts(currentCorpus, currentMode);
+    updateCharts(currentChartCorpus, currentMode);
 });
 
 // Switch to type mode
@@ -59,24 +61,34 @@ document.getElementById("typeTab").addEventListener("click", () => {
 
     currentMode = "type";
     setActiveTab();
-    updateCharts(currentCorpus, currentMode);
+    updateCharts(currentChartCorpus, currentMode);
 });
 
 // Previous table page
 previousButton.addEventListener("click", () => {
     if (currentPage > 0) {
         currentPage--;
-        renderTopWords();
+        renderTopWords(
+            currentHomFalseCorpus.rows,
+            currentCorpus.rows
+        );
     }
 });
 
 // Next table page
 nextButton.addEventListener("click", () => {
-    const maxPage = Math.floor((currentCorpus.rows.length - 1) / pageSize);
+    if (!currentHomFalseCorpus) return;
+
+    const maxPage = Math.floor(
+        (currentHomFalseCorpus.rows.length - 1) / pageSize
+    );
 
     if (currentPage < maxPage) {
         currentPage++;
-        renderTopWords();
+        renderTopWords(
+            currentHomFalseCorpus.rows,
+            currentCorpus.rows
+        );
     }
 });
 
@@ -103,86 +115,201 @@ function getRequestUrl(url) {
     return url.href;
 }
 
+function createHomUrl(originalUrl, homValue) {
+    const url = new URL(originalUrl);
+
+    // Keep the same corpus, but replace the query parameters
+    url.searchParams.set(
+        "patt",
+        `<term hom="${homValue}"/>`
+    );
+
+    url.searchParams.set(
+        "group",
+        "context:lemma:i:H"
+    );
+
+    url.searchParams.set("adjusthits", "true");
+    url.searchParams.set("withspans", "false");
+    url.searchParams.set("outputformat", "json");
+
+    // We want all matching groups
+    url.searchParams.set("first", "0");
+    url.searchParams.set("number", "50000");
+
+    // These are not needed for this query
+    url.searchParams.delete("sort");
+    url.searchParams.delete("interface");
+
+    return url;
+}
+
 export function getProductionCorpusUrl() {
     const corpus = document.location.href
         .replace(/.*blacklab-frontend\//, "")
         .replace(/\/.*/, "");
 
-    return `${window.location.origin}/blacklab-server/${encodeURIComponent(corpus)}/hits`;
+    return `${window.location.origin}/blacklab-server/corpora/${encodeURIComponent(corpus)}/hits`;
 }
 
 async function getNumberOfGroups(originalUrl) {
-    let url = originalUrl; // new URL(originalUrl);
-    url.pathname = url.pathname.replace("%3A", ':');
+    const url = new URL(originalUrl);
 
     url.searchParams.set("patt", "[]");
     url.searchParams.set("group", "context:lemma:i:H");
     url.searchParams.set("withspans", "false");
     url.searchParams.set("outputformat", "json");
-    url.searchParams.set("rid", self.crypto.randomUUID()); 
 
     url.searchParams.delete("sort");
 
     // Make sure there are no accidental double slashes in the path
     url.pathname = url.pathname.replace(/\/+/g, "/");
 
-    if (useProxy())
-    { 
-      const proxyUrl =
-          "/blacklab" +
-          url.pathname +
-           url.search;
+    const proxyUrl =
+        "/blacklab" +
+        url.pathname +
+        url.search;
 
-       url = proxyUrl;
-       console.log("GROUPS URL (with proxy):", proxyUrl);
-    }
+    console.log("GROUPS URL:", proxyUrl);
 
-    const response = await fetch(url);
+    const response = await fetch(proxyUrl);
 
     if (!response.ok) {
         throw new Error("Could not retrieve number of groups.");
     }
 
     const json = await response.json();
-    console.log(json);
+
     return json.summary.numberOfGroups;
 }
 
+function createChartCorpus(corpus, ambiguousLemmas) {
 
-function useProxy() {
-      return  (window.location.hostname == "localhost" || window.location.hostname == "127.0.0.1")
+    // Change the language of ambiguous loanwords
+    const rows = corpus.rows.map(row => {
 
+        const isAmbiguous =
+            ambiguousLemmas.has(
+                row.lemma.toLowerCase()
+            );
+
+        if (isAmbiguous) {
+            return {
+                ...row,
+                language: "Ambigue leenwoorden"
+            };
+        }
+
+        return row;
+    });
+
+
+    // Recalculate token distribution
+    const tokenTotals = new Map();
+
+    rows.forEach(row => {
+
+        const language = row.language;
+
+        if (!tokenTotals.has(language)) {
+            tokenTotals.set(language, 0);
+        }
+
+        tokenTotals.set(
+            language,
+            tokenTotals.get(language) + row.count
+        );
+    });
+
+
+    // Recalculate type distribution
+    const typeTotals = new Map();
+
+    rows.forEach(row => {
+
+        const language = row.language;
+
+        if (!typeTotals.has(language)) {
+            typeTotals.set(language, 0);
+        }
+
+        typeTotals.set(
+            language,
+            typeTotals.get(language) + 1
+        );
+    });
+
+
+    return {
+        ...corpus,
+        rows,
+
+        tokenDistribution: Array.from(
+            tokenTotals,
+            ([language, count]) => ({
+                language,
+                count
+            })
+        ),
+
+        typeDistribution: Array.from(
+            typeTotals,
+            ([language, count]) => ({
+                language,
+                count
+            })
+        )
+    };
 }
+
+function getAmbiguousLemmas(json) {
+    const lemmas = new Set();
+
+    for (const group of json.hitGroups ?? []) {
+        const lemmaProperty = (group.properties ?? []).find(
+            property =>
+                property.name.includes("lemma")
+        );
+
+        if (lemmaProperty?.value) {
+            lemmas.add(
+                lemmaProperty.value.toLowerCase()
+            );
+        }
+    }
+
+    return lemmas;
+}
+
 // Load and process the selected JSON file
 async function loadCorpus() {
 
     let url;
 
-    if (!useProxy()) {
-        url = new URL(getProductionCorpusUrl());
-        url.searchParams.set("patt", "<term/>");
-        url.searchParams.set("outputformat", "json");
-        url.searchParams.set("withspans", "true");
-        url.searchParams.set("number", "500000");
-        url.searchParams.set("group", "span-attribute:with-spans[term]:language:i,context:lemma:i:H");
+    if (
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+    ) {
+        url = getProductionCorpusUrl();
     } else {
         url = urlInput.value.trim();
-        url = new URL(url);
+
         if (!url) {
             updateStatus("Please enter a JSON URL.");
             return;
         }
     }
 
-    urlForOccurrences = url;
     updateStatus("Loading corpus...");
 
-
     try {
-        // Parse the original BlackLab URL
-        const parsedUrl = url;
 
-        // Remove accidental double slashes from the path
+        // --------------------------------------------------
+        // 1. Parse the original BlackLab URL
+        // --------------------------------------------------
+
+        const parsedUrl = new URL(url);
+
         parsedUrl.pathname =
             parsedUrl.pathname.replace(/\/+/g, "/");
 
@@ -190,6 +317,11 @@ async function loadCorpus() {
 
         console.log("ORIGINAL URL:", url);
         console.log("REQUEST URL:", requestUrl);
+
+
+        // --------------------------------------------------
+        // 2. Fetch the general corpus
+        // --------------------------------------------------
 
         const response = await fetch(requestUrl);
 
@@ -201,9 +333,18 @@ async function loadCorpus() {
 
         const json = await response.json();
 
-        console.log(json);
+
+        // --------------------------------------------------
+        // 3. Get number of groups
+        // --------------------------------------------------
+
         const numberOfGroups =
             await getNumberOfGroups(url);
+
+
+        // --------------------------------------------------
+        // 4. Parse the general corpus
+        // --------------------------------------------------
 
         currentCorpus =
             parseBlackLab(json, numberOfGroups);
@@ -212,26 +353,182 @@ async function loadCorpus() {
             throw new Error("No loanword groups found.");
         }
 
-        currentPage = 0;
 
-        // Calculate dashboard statistics
-        const statistics = calculateStatistics(
-            currentCorpus.rows,
-            currentCorpus.corpus
+        // --------------------------------------------------
+        // 5. Fetch hom=false corpus
+        // --------------------------------------------------
+
+        const homFalseUrl =
+            createHomUrl(url, "false");
+
+        const homFalseRequestUrl =
+            getRequestUrl(homFalseUrl);
+
+        console.log(
+            "HOM=FALSE URL:",
+            homFalseUrl.href
         );
 
-        // Update the interface
+        console.log(
+            "HOM=FALSE REQUEST URL:",
+            homFalseRequestUrl
+        );
+
+        const homFalseResponse =
+            await fetch(homFalseRequestUrl);
+
+        if (!homFalseResponse.ok) {
+            throw new Error(
+                `Could not retrieve hom=false data: ${homFalseResponse.status} ${homFalseResponse.statusText}`
+            );
+        }
+
+        const homFalseJson =
+            await homFalseResponse.json();
+
+        console.log(
+            "HOM=FALSE JSON:",
+            homFalseJson
+        );
+
+        const homFalseCorpus =
+            parseBlackLab(
+                homFalseJson,
+                numberOfGroups
+            );
+
+        currentHomFalseCorpus =
+            homFalseCorpus;
+
+
+        // --------------------------------------------------
+        // 6. Fetch hom=true corpus
+        // --------------------------------------------------
+
+        const homTrueUrl =
+            createHomUrl(url, "true");
+
+        const homTrueRequestUrl =
+            getRequestUrl(homTrueUrl);
+
+        console.log(
+            "HOM=TRUE URL:",
+            homTrueUrl.href
+        );
+
+        console.log(
+            "HOM=TRUE REQUEST URL:",
+            homTrueRequestUrl
+        );
+
+        const homTrueResponse =
+            await fetch(homTrueRequestUrl);
+
+        if (!homTrueResponse.ok) {
+            throw new Error(
+                `Could not retrieve hom=true data: ${homTrueResponse.status} ${homTrueResponse.statusText}`
+            );
+        }
+
+        const homTrueJson =
+            await homTrueResponse.json();
+
+        console.log(
+            "HOM=TRUE JSON:",
+            homTrueJson
+        );
+
+
+        // --------------------------------------------------
+        // 7. Get ambiguous lemmas
+        // --------------------------------------------------
+
+        const ambiguousLemmas =
+            getAmbiguousLemmas(homTrueJson);
+        
+        const explorerRows = currentCorpus.rows.filter(row =>
+            ambiguousLemmas.has(row.lemma.toLowerCase()) ||
+            currentHomFalseCorpus.rows.some(
+            loanRow =>
+                loanRow.lemma.toLowerCase() ===
+                row.lemma.toLowerCase()
+            )
+        );
+
+        console.log(
+            "AMBIGUOUS LEMMAS:",
+            ambiguousLemmas
+        );
+
+
+        // --------------------------------------------------
+        // 8. Create corpus used by the charts
+        // --------------------------------------------------
+
+        currentChartCorpus =
+            createChartCorpus(
+                currentCorpus,
+                ambiguousLemmas
+            );
+
+
+        // --------------------------------------------------
+        // 9. Reset table page
+        // --------------------------------------------------
+
+        currentPage = 0;
+
+
+        // --------------------------------------------------
+        // 10. Calculate dashboard statistics
+        //
+        // Loanword statistics = hom=false
+        // Language statistics = general corpus
+        // --------------------------------------------------
+
+        const statistics =
+            calculateStatistics(
+                homFalseCorpus.rows,
+                currentCorpus.corpus,
+                currentCorpus.rows
+            );
+
+
+        // --------------------------------------------------
+        // 11. Update the interface
+        // --------------------------------------------------
+
         updateDashboard(statistics);
-        updateCharts(currentCorpus, currentMode);
-        updateExplorer(currentCorpus.rows, urlForOccurrences);
-        renderTopWords();
+
+        updateCharts(
+            currentChartCorpus,
+            currentMode
+        );
+
+        updateExplorer(
+            homFalseCorpus.rows,
+            currentCorpus.rows,
+            ambiguousLemmas
+        );
+
+        renderTopWords(
+            homFalseCorpus.rows,
+            currentCorpus.rows
+        );
+
+
+        // --------------------------------------------------
+        // 12. Update status
+        // --------------------------------------------------
 
         updateStatus(
             `Loaded ${currentCorpus.rows.length.toLocaleString()} loanword types.`
         );
 
     } catch (error) {
+
         console.error(error);
+
         updateStatus(
             "Could not load corpus: " + error.message
         );
@@ -240,12 +537,30 @@ async function loadCorpus() {
 
 // Create table of top occurring loanwords
 
-// Display the current page of the table
-function renderTopWords() {
+function renderTopWords(loanwordRows, generalRows) {
 
     if (!currentCorpus) return;
 
-    const rows = [...currentCorpus.rows]
+    // Create a lookup from lemma to source language
+    const languageByLemma = new Map();
+
+    generalRows.forEach(row => {
+        languageByLemma.set(
+            row.lemma.toLowerCase(),
+            row.language
+        );
+    });
+
+    // Use ONLY hom=false rows for the top words,
+    // but get their language from the general query.
+    const rows = loanwordRows
+        .map(row => ({
+            ...row,
+            language:
+                languageByLemma.get(
+                    row.lemma.toLowerCase()
+                ) ?? "Unknown"
+        }))
         .sort((a, b) => b.count - a.count);
 
     const start = currentPage * pageSize;
@@ -276,19 +591,18 @@ function renderTopWords() {
         const button = tr.querySelector(".lemma-link");
 
         button.addEventListener("click", () => {
-            console.log("occurrence URL:" + urlForOccurrences.toString());
-            openOccurrences(row.lemma, urlForOccurrences) // urlInput.value.trim());
+            openOccurrences(
+                row.lemma,
+                urlInput.value.trim()
+            );
         });
 
         tableBody.appendChild(tr);
-
     });
 
-    // Update page information
     pageInfo.textContent =
         `Resultaat ${start + 1}–${end} van ${rows.length.toLocaleString()} leenwoorden`;
 
-    // Enable or disable navigation buttons
     previousButton.disabled = currentPage === 0;
     nextButton.disabled = end >= rows.length;
 }

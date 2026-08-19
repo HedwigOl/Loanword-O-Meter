@@ -8,7 +8,7 @@ let container;
 let searchBox;
 let languages = [];
 let searchTerm = "";
-let urlForOccurrences;
+
 const expanded = new Set();
 const pageIndex = new Map();
 
@@ -25,33 +25,127 @@ export function initialiseExplorer() {
 
 /* Build data */
 
-export function updateExplorer(rows, _urlForOccurrences) {
+export function updateExplorer(
+    homFalseRows,
+    generalRows,
+    ambiguousLemmas
+) {
 
-    urlForOccurrences = _urlForOccurrences;
-    const map = new Map();
+    const languageMap = new Map();
 
-    rows.forEach(row => {
+    // --------------------------------------------------
+    // Build lookup: lemma -> possible languages
+    // from the general corpus
+    // --------------------------------------------------
 
-        if (!map.has(row.language)) {
-            map.set(row.language, {
+    const languageLookup = new Map();
+
+    generalRows.forEach(row => {
+
+        const lemma = row.lemma.toLowerCase();
+
+        if (!languageLookup.has(lemma)) {
+            languageLookup.set(lemma, []);
+        }
+
+        const languagesForLemma =
+            languageLookup.get(lemma);
+
+        if (
+            !languagesForLemma.some(
+                language => language.language === row.language
+            )
+        ) {
+            languagesForLemma.push({
                 language: row.language,
+                count: row.count
+            });
+        }
+
+    });
+
+
+    // --------------------------------------------------
+    // Normal languages
+    // ONLY hom=false
+    // --------------------------------------------------
+
+    homFalseRows.forEach(row => {
+
+        const lemma = row.lemma.toLowerCase();
+
+        const possibleLanguages =
+            languageLookup.get(lemma) ?? [];
+
+        const language =
+            possibleLanguages.length > 0
+                ? possibleLanguages[0].language
+                : "Unknown";
+
+        if (!languageMap.has(language)) {
+            languageMap.set(language, {
+                language,
                 occurrences: 0,
                 loanwords: []
             });
         }
 
-        const language = map.get(row.language);
+        const languageGroup =
+            languageMap.get(language);
 
-        language.occurrences += row.count;
+        languageGroup.occurrences += row.count;
 
-        language.loanwords.push({
+        languageGroup.loanwords.push({
             lemma: row.lemma,
             count: row.count
         });
 
     });
 
-    languages = [...map.values()];
+
+    // --------------------------------------------------
+    // Ambiguous loanwords
+    // Group them by POSSIBLE LANGUAGE
+    // --------------------------------------------------
+
+    const ambiguousLanguageMap = new Map();
+
+    generalRows.forEach(row => {
+
+        const lemma = row.lemma.toLowerCase();
+
+        if (!ambiguousLemmas.has(lemma)) {
+            return;
+        }
+
+        const language = row.language;
+
+        if (!ambiguousLanguageMap.has(language)) {
+            ambiguousLanguageMap.set(language, {
+                language,
+                occurrences: 0,
+                loanwords: []
+            });
+        }
+
+        const languageGroup =
+            ambiguousLanguageMap.get(language);
+
+        languageGroup.occurrences += row.count;
+
+        languageGroup.loanwords.push({
+            lemma: row.lemma,
+            count: row.count
+        });
+
+    });
+
+
+    // --------------------------------------------------
+    // Sort normal language groups
+    // --------------------------------------------------
+
+    languages = [...languageMap.values()];
 
     languages.forEach(language => {
 
@@ -68,11 +162,51 @@ export function updateExplorer(rows, _urlForOccurrences) {
         b.occurrences - a.occurrences
     );
 
+
+    // --------------------------------------------------
+    // Create special "Ambigue leenwoorden" category
+    // --------------------------------------------------
+
+    const ambiguousLanguages =
+        [...ambiguousLanguageMap.values()];
+
+    ambiguousLanguages.forEach(language => {
+
+        language.loanwords.sort((a, b) =>
+            b.count - a.count ||
+            a.lemma.localeCompare(b.lemma)
+        );
+
+        pageIndex.set(
+            `ambiguous:${language.language}`,
+            0
+        );
+
+    });
+
+    ambiguousLanguages.sort((a, b) =>
+        b.occurrences - a.occurrences
+    );
+
+
+    const ambiguousCategory = {
+        language: "Ambigue leenwoorden",
+        occurrences: ambiguousLanguages.reduce(
+            (sum, language) =>
+                sum + language.occurrences,
+            0
+        ),
+        loanwords: ambiguousLanguages
+    };
+
+
+    // Add ambiguous category LAST
+    languages.push(ambiguousCategory);
+
     expanded.clear();
 
     renderExplorer();
 }
-
 /* Render */
 
 function renderExplorer() {
@@ -99,7 +233,6 @@ function renderExplorer() {
 }
 
 /* Language card*/
-
 function createLanguage(language) {
 
     const card = document.createElement("div");
@@ -110,7 +243,15 @@ function createLanguage(language) {
         (
             language.language.toLowerCase().includes(searchTerm) ||
             language.loanwords.some(word =>
-                word.lemma.toLowerCase().includes(searchTerm)
+                language.language === "Ambigue leenwoorden"
+                    ? word.loanwords.some(loanword =>
+                        loanword.lemma
+                            .toLowerCase()
+                            .includes(searchTerm)
+                    )
+                    : word.lemma
+                        .toLowerCase()
+                        .includes(searchTerm)
             )
         );
 
@@ -130,7 +271,10 @@ function createLanguage(language) {
         <div class="language-summary">
             ${language.occurrences.toLocaleString()} voorkomens
             •
-            ${language.loanwords.length.toLocaleString()} leenwoorden
+            ${language.language === "Ambigue leenwoorden"
+                ? language.loanwords.length.toLocaleString() + " talen"
+                : language.loanwords.length.toLocaleString() + " leenwoorden"
+            }
         </div>
     `;
 
@@ -150,15 +294,120 @@ function createLanguage(language) {
 
     if (!open) return card;
 
-    card.appendChild(
-        createLoanwordTable(language, matchesSearch)
-    );
+
+    // Special rendering for ambiguous loanwords
+    if (language.language === "Ambigue leenwoorden") {
+
+        card.appendChild(
+            createAmbiguousLanguages(language)
+        );
+
+    } else {
+
+        card.appendChild(
+            createLoanwordTable(
+                language,
+                matchesSearch
+            )
+        );
+
+    }
 
     return card;
 }
 
-/* Loanword table */
+function createAmbiguousLanguages(category) {
 
+    const wrapper = document.createElement("div");
+    wrapper.className = "language-content";
+
+    category.loanwords.forEach(language => {
+
+        const languageKey =
+            `ambiguous:${language.language}`;
+
+        const open =
+            expanded.has(languageKey);
+
+        const matchesSearch =
+            searchTerm &&
+            (
+                language.language
+                    .toLowerCase()
+                    .includes(searchTerm) ||
+                language.loanwords.some(word =>
+                    word.lemma
+                        .toLowerCase()
+                        .includes(searchTerm)
+                )
+            );
+
+        const languageCard =
+            document.createElement("div");
+
+        languageCard.className =
+            "language-card ambiguous-language-card";
+
+
+        // Possible language header
+        const header =
+            document.createElement("div");
+
+        header.className =
+            "language-header";
+
+        header.innerHTML = `
+            <div class="language-title">
+                ${open ? "▼" : "▶"}
+                <strong>${language.language}</strong>
+            </div>
+
+            <div class="language-summary">
+                ${language.occurrences.toLocaleString()}
+                voorkomens
+                •
+                ${language.loanwords.length.toLocaleString()}
+                leenwoorden
+            </div>
+        `;
+
+        header.onclick = event => {
+
+            event.stopPropagation();
+
+            if (expanded.has(languageKey)) {
+                expanded.delete(languageKey);
+            } else {
+                expanded.add(languageKey);
+            }
+
+            renderExplorer();
+
+        };
+
+        languageCard.appendChild(header);
+
+
+        // Show words when language is expanded
+        if (open || matchesSearch) {
+
+            languageCard.appendChild(
+                createLoanwordTable(
+                    language,
+                    matchesSearch
+                )
+            );
+
+        }
+
+        wrapper.appendChild(languageCard);
+
+    });
+
+    return wrapper;
+}
+
+/* Loanword table */
 function createLoanwordTable(language, searching = false) {
 
     const wrapper = document.createElement("div");
@@ -212,25 +461,64 @@ function createLoanwordTable(language, searching = false) {
             tr.querySelector(".lemma-link")
                 .addEventListener("click", event => {
 
-                    // Prevent collapsing/expanding the language card
                     event.stopPropagation();
 
                     openOccurrences(
                         word.lemma,
- 			urlForOccurrences
-                        //document.getElementById("jsonUrl").value.trim()
+                        document.getElementById("jsonUrl").value.trim()
                     );
 
                 });
 
             tbody.appendChild(tr);
 
+
+            // --------------------------------------------------
+            // For ambiguous words, show possible languages
+            // --------------------------------------------------
+
+            if (
+                language.language === "Ambigue leenwoorden" &&
+                word.languages?.length
+            ) {
+
+                const languageRow =
+                    document.createElement("tr");
+
+                languageRow.className =
+                    "ambiguous-language-row";
+
+                const languageCell =
+                    document.createElement("td");
+
+                languageCell.colSpan = 2;
+
+                languageCell.innerHTML = `
+                    <div class="ambiguous-languages">
+                        <strong>Mogelijke talen:</strong>
+                        ${word.languages
+                            .map(item =>
+                                `<span class="ambiguous-language">
+                                    ${item.language}
+                                </span>`
+                            )
+                            .join(" • ")}
+                    </div>
+                `;
+
+                languageRow.appendChild(languageCell);
+
+                tbody.appendChild(languageRow);
+            }
+
         });
 
     wrapper.appendChild(table);
 
     if (!searching && words.length > PAGE_SIZE) {
-        wrapper.appendChild(createPagination(language));
+        wrapper.appendChild(
+            createPagination(language)
+        );
     }
 
     if (searching && words.length === 0) {
@@ -244,7 +532,6 @@ function createLoanwordTable(language, searching = false) {
     }
 
     return wrapper;
-
 }
 
 /* pagination*/
