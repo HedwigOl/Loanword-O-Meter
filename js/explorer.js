@@ -1,6 +1,7 @@
 // explorer.js
 
 import { openOccurrences } from "./occurrences.js";
+import { blacklab_server } from "./blacklab_server.js";
 
 let container;
 let searchBox;
@@ -409,8 +410,8 @@ function createLoanwordTable(language, searching = false) {
                     event.stopPropagation();
 
                     openOccurrences(
-                        word.lemma,
-                        document.getElementById("jsonUrl").value.trim()
+                        word.lemma, blacklab_server.getCorpusUrl()
+                        //document.getElementById("jsonUrl").value.trim()
                     );
 
                 });

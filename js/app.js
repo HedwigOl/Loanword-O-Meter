@@ -6,6 +6,7 @@ import { updateDashboard, updateStatus }      from "./ui.js";
 import { initialiseCharts, updateCharts }     from "./charts.js";
 import { initialiseExplorer, updateExplorer } from "./explorer.js";
 import { openOccurrences }                    from "./occurrences.js";
+import { blacklab_server }                    from "./blacklab_server.js";
 
 // Main interface elements
 const loadButton     = document.getElementById("loadBtn");
@@ -18,11 +19,12 @@ const pageInfo       = document.getElementById("tablePageInfo");
 
 // Application state
 let currentCorpus = null;
+let currentCorpusUrl = null;
 let currentHomFalseCorpus = null;
 let currentChartCorpus = null;
-let currentMode   = "token";
+let currentMode = "token";
 
-const pageSize  = 10;
+const pageSize = 10;
 let currentPage = 0;
 
 // Create empty charts and explorer
@@ -38,36 +40,52 @@ urlInput.addEventListener("keydown", event => {
     }
 });
 
-if (
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1"
-) {
+if (!blacklab_server.isLocalDevelopment()) {
     loaderSection.style.display = "none";
     loadCorpus();
 }
 
 // Switch to token mode
-document.getElementById("tokenTab").addEventListener("click", () => {
-    if (!currentCorpus) return;
+document
+    .getElementById("tokenTab")
+    .addEventListener("click", () => {
 
-    currentMode = "token";
-    setActiveTab();
-    updateCharts(currentChartCorpus, currentMode);
-});
+        if (!currentCorpus) return;
+
+        currentMode = "token";
+
+        setActiveTab();
+
+        updateCharts(
+            currentChartCorpus,
+            currentMode
+        );
+    });
 
 // Switch to type mode
-document.getElementById("typeTab").addEventListener("click", () => {
-    if (!currentCorpus) return;
+document
+    .getElementById("typeTab")
+    .addEventListener("click", () => {
 
-    currentMode = "type";
-    setActiveTab();
-    updateCharts(currentChartCorpus, currentMode);
-});
+        if (!currentCorpus) return;
+
+        currentMode = "type";
+
+        setActiveTab();
+
+        updateCharts(
+            currentChartCorpus,
+            currentMode
+        );
+    });
 
 // Previous table page
 previousButton.addEventListener("click", () => {
+
     if (currentPage > 0) {
+
         currentPage--;
+
         renderTopWords(
             currentHomFalseCorpus.rows,
             currentCorpus.rows
@@ -77,14 +95,18 @@ previousButton.addEventListener("click", () => {
 
 // Next table page
 nextButton.addEventListener("click", () => {
+
     if (!currentHomFalseCorpus) return;
 
     const maxPage = Math.floor(
-        (currentHomFalseCorpus.rows.length - 1) / pageSize
+        (currentHomFalseCorpus.rows.length - 1) /
+        pageSize
     );
 
     if (currentPage < maxPage) {
+
         currentPage++;
+
         renderTopWords(
             currentHomFalseCorpus.rows,
             currentCorpus.rows
@@ -94,96 +116,26 @@ nextButton.addEventListener("click", () => {
 
 // Highlight the selected tab
 function setActiveTab() {
+
     document
         .getElementById("tokenTab")
-        .classList.toggle("active", currentMode === "token");
+        .classList.toggle(
+            "active",
+            currentMode === "token"
+        );
 
     document
         .getElementById("typeTab")
-        .classList.toggle("active", currentMode === "type");
+        .classList.toggle(
+            "active",
+            currentMode === "type"
+        );
 }
 
-function getRequestUrl(url) {
-    // Local development: use the proxy
-    if (
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1"
-    ) {
-        return "/blacklab" + url.pathname + url.search;
-    }
-
-    return url.href;
-}
-
-function createHomUrl(originalUrl, homValue) {
-    const url = new URL(originalUrl);
-
-    // Keep the same corpus, but replace the query parameters
-    url.searchParams.set(
-        "patt",
-        `<term hom="${homValue}"/>`
-    );
-
-    url.searchParams.set(
-        "group",
-        "context:lemma:i:H"
-    );
-
-    url.searchParams.set("adjusthits", "true");
-    url.searchParams.set("withspans", "false");
-    url.searchParams.set("outputformat", "json");
-
-    // We want all matching groups
-    url.searchParams.set("first", "0");
-    url.searchParams.set("number", "50000");
-
-    // These are not needed for this query
-    url.searchParams.delete("sort");
-    url.searchParams.delete("interface");
-
-    return url;
-}
-
-export function getProductionCorpusUrl() {
-    const corpus = document.location.href
-        .replace(/.*blacklab-frontend\//, "")
-        .replace(/\/.*/, "");
-
-    return `${window.location.origin}/blacklab-server/corpora/${encodeURIComponent(corpus)}/hits`;
-}
-
-async function getNumberOfGroups(originalUrl) {
-    const url = new URL(originalUrl);
-
-    url.searchParams.set("patt", "[]");
-    url.searchParams.set("group", "context:lemma:i:H");
-    url.searchParams.set("withspans", "false");
-    url.searchParams.set("outputformat", "json");
-
-    url.searchParams.delete("sort");
-
-    // Make sure there are no accidental double slashes in the path
-    url.pathname = url.pathname.replace(/\/+/g, "/");
-
-    const proxyUrl =
-        "/blacklab" +
-        url.pathname +
-        url.search;
-
-    console.log("GROUPS URL:", proxyUrl);
-
-    const response = await fetch(proxyUrl);
-
-    if (!response.ok) {
-        throw new Error("Could not retrieve number of groups.");
-    }
-
-    const json = await response.json();
-
-    return json.summary.numberOfGroups;
-}
-
-function createChartCorpus(corpus, ambiguousLemmas) {
+function createChartCorpus(
+    corpus,
+    ambiguousLemmas
+) {
 
     // Change the language of ambiguous loanwords
     const rows = corpus.rows.map(row => {
@@ -194,6 +146,7 @@ function createChartCorpus(corpus, ambiguousLemmas) {
             );
 
         if (isAmbiguous) {
+
             return {
                 ...row,
                 language: "Ambigue leenwoorden"
@@ -242,10 +195,12 @@ function createChartCorpus(corpus, ambiguousLemmas) {
 
     return {
         ...corpus,
+
         rows,
 
         tokenDistribution: Array.from(
             tokenTotals,
+
             ([language, count]) => ({
                 language,
                 count
@@ -254,6 +209,7 @@ function createChartCorpus(corpus, ambiguousLemmas) {
 
         typeDistribution: Array.from(
             typeTotals,
+
             ([language, count]) => ({
                 language,
                 count
@@ -263,15 +219,19 @@ function createChartCorpus(corpus, ambiguousLemmas) {
 }
 
 function getAmbiguousLemmas(json) {
+
     const lemmas = new Set();
 
     for (const group of json.hitGroups ?? []) {
-        const lemmaProperty = (group.properties ?? []).find(
-            property =>
-                property.name.includes("lemma")
-        );
+
+        const lemmaProperty =
+            (group.properties ?? []).find(
+                property =>
+                    property.name.includes("lemma")
+            );
 
         if (lemmaProperty?.value) {
+
             lemmas.add(
                 lemmaProperty.value.toLowerCase()
             );
@@ -281,74 +241,54 @@ function getAmbiguousLemmas(json) {
     return lemmas;
 }
 
-async function fetchJson(url) {
-
-    const parsedUrl = new URL(url);
-
-    parsedUrl.pathname =
-        parsedUrl.pathname.replace(/\/+/g, "/");
-
-    const requestUrl = getRequestUrl(parsedUrl);
-
-    const response = await fetch(requestUrl);
-
-    if (!response.ok) {
-        throw new Error(
-            `${response.status} ${response.statusText}`
-        );
-    }
-
-    return response.json();
-}
-
-// Load and process the selected JSON file
-// Load and process the selected JSON file
+// Load and process the selected corpus
 async function loadCorpus() {
 
     let url;
 
-    if (
-        window.location.hostname !== "localhost" &&
-        window.location.hostname !== "127.0.0.1"
-    ) {
-        url = getProductionCorpusUrl();
-    } else {
-        url = urlInput.value.trim();
+    try {
 
-        if (!url) {
-            updateStatus("Please enter a JSON URL.");
-            return;
-        }
+        url = blacklab_server.getCorpusUrl(
+            urlInput.value
+        );
+
+        currentCorpusUrl = url;
+
+    } catch (error) {
+
+        updateStatus(error.message);
+
+        return;
     }
 
     updateStatus("Loading corpus...");
 
     try {
 
-        // Get the general corpus
-        console.log("ORIGINAL URL:", url);
-
-        const json = await fetchJson(url);
-
-        const numberOfGroups =
-            await getNumberOfGroups(url);
-
-        currentCorpus =
-            parseBlackLab(json, numberOfGroups);
-
-
-        // Get unambiguous loanwords (hom=false)
-        const homFalseUrl =
-            createHomUrl(url, "false");
-
         console.log(
-            "HOM=FALSE URL:",
-            homFalseUrl.href
+            "ORIGINAL URL:",
+            url
         );
 
-        const homFalseJson =
-            await fetchJson(homFalseUrl);
+        const {
+            json,
+            numberOfGroups,
+            homFalseJson,
+            homTrueJson
+        } = await blacklab_server.loadCorpusData(
+            url
+        );
 
+
+        // General corpus
+        currentCorpus =
+            parseBlackLab(
+                json,
+                numberOfGroups
+            );
+
+
+        // Unambiguous loanwords
         const homFalseCorpus =
             parseBlackLab(
                 homFalseJson,
@@ -359,20 +299,11 @@ async function loadCorpus() {
             homFalseCorpus;
 
 
-        // Get ambiguous loanwords (hom=true)
-        const homTrueUrl =
-            createHomUrl(url, "true");
-
-        console.log(
-            "HOM=TRUE URL:",
-            homTrueUrl.href
-        );
-
-        const homTrueJson =
-            await fetchJson(homTrueUrl);
-
+        // Ambiguous loanwords
         const ambiguousLemmas =
-            getAmbiguousLemmas(homTrueJson);
+            getAmbiguousLemmas(
+                homTrueJson
+            );
 
         console.log(
             "AMBIGUOUS LEMMAS:",
@@ -382,7 +313,10 @@ async function loadCorpus() {
 
         // Check that the corpus contains loanwords
         if (currentCorpus.rows.length === 0) {
-            throw new Error("No loanword groups found.");
+
+            throw new Error(
+                "No loanword groups found."
+            );
         }
 
 
@@ -408,7 +342,9 @@ async function loadCorpus() {
 
 
         // Update interface
-        updateDashboard(statistics);
+        updateDashboard(
+            statistics
+        );
 
         updateCharts(
             currentChartCorpus,
@@ -436,19 +372,25 @@ async function loadCorpus() {
         console.error(error);
 
         updateStatus(
-            "Could not load corpus: " + error.message
+            "Could not load corpus: " +
+            error.message
         );
     }
 }
 
 // Create table of top occurring loanwords
-function renderTopWords(loanwordRows, generalRows) {
+function renderTopWords(
+    loanwordRows,
+    generalRows
+) {
 
     if (!currentCorpus) return;
 
-    const languageByLemma = new Map();
+    const languageByLemma =
+        new Map();
 
     generalRows.forEach(row => {
+
         languageByLemma.set(
             row.lemma.toLowerCase(),
             row.language
@@ -458,53 +400,82 @@ function renderTopWords(loanwordRows, generalRows) {
     const rows = loanwordRows
         .map(row => ({
             ...row,
+
             language:
                 languageByLemma.get(
                     row.lemma.toLowerCase()
                 ) ?? "Unknown"
         }))
-        .sort((a, b) => b.count - a.count);
+        .sort(
+            (a, b) =>
+                b.count - a.count
+        );
 
-    const start = currentPage * pageSize;
-    const end = Math.min(start + pageSize, rows.length);
+    const start =
+        currentPage * pageSize;
+
+    const end =
+        Math.min(
+            start + pageSize,
+            rows.length
+        );
 
     tableBody.innerHTML = "";
 
-    rows.slice(start, end).forEach((row, index) => {
+    rows
+        .slice(start, end)
+        .forEach((row, index) => {
 
-        const tr = document.createElement("tr");
+            const tr =
+                document.createElement("tr");
 
-        tr.innerHTML = `
-            <td>${start + index + 1}</td>
+            tr.innerHTML = `
+                <td>
+                    ${start + index + 1}
+                </td>
 
-            <td>
-                <button
-                    class="lemma-link"
-                    data-lemma="${row.lemma}">
-                    ${row.lemma}
-                </button>
-            </td>
+                <td>
+                    <button
+                        class="lemma-link"
+                        data-lemma="${row.lemma}">
+                        ${row.lemma}
+                    </button>
+                </td>
 
-            <td>${row.language}</td>
+                <td>
+                    ${row.language}
+                </td>
 
-            <td>${row.count.toLocaleString()}</td>
-        `;
+                <td>
+                    ${row.count.toLocaleString()}
+                </td>
+            `;
 
-        const button = tr.querySelector(".lemma-link");
+            const button =
+                tr.querySelector(
+                    ".lemma-link"
+                );
 
-        button.addEventListener("click", () => {
-            openOccurrences(
-                row.lemma,
-                urlInput.value.trim()
+            button.addEventListener(
+                "click",
+                () => {
+
+                    openOccurrences(
+                        row.lemma,
+                        currentCorpusUrl
+                    );
+                }
             );
-        });
 
-        tableBody.appendChild(tr);
-    });
+            tableBody.appendChild(tr);
+        });
 
     pageInfo.textContent =
         `Resultaat ${start + 1}–${end} van ${rows.length.toLocaleString()} leenwoorden`;
 
-    previousButton.disabled = currentPage === 0;
-    nextButton.disabled = end >= rows.length;
+    previousButton.disabled =
+        currentPage === 0;
+
+    nextButton.disabled =
+        end >= rows.length;
 }
