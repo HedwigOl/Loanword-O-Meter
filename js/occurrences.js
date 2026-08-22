@@ -1,6 +1,6 @@
 // occurrences.js
 
-import { getProductionCorpusUrl } from "./app.js";
+import {  blacklab_server } from "./blacklab_server.js";
 
 let selectedLemma = null;
 let selectedCorpusUrl = null;
@@ -133,6 +133,13 @@ async function loadOccurrences(lemma, corpusUrl) {
     }
 }
 
+function leftContext(hit) {
+	return blacklab_server.v5?hit.before:hit.left
+}
+function rightContext(hit) {
+	return blacklab_server.v5?hit.after:hit.right
+}
+
 function renderOccurrences(hits) {
 
     occurrenceList.innerHTML = "";
@@ -140,13 +147,13 @@ function renderOccurrences(hits) {
     hits.forEach(hit => {
 
         const left =
-            (hit.left?.word || []).join(" ");
+            (leftContext(hit).word || []).join(" ");
 
         const keyword =
             (hit.match?.word || []).join(" ");
 
         const right =
-            (hit.right?.word || []).join(" ");
+            (rightContext(hit)?.word || []).join(" ");
 
         const row =
             document.createElement("div");
